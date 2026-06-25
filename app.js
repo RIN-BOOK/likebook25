@@ -1,3 +1,9 @@
+// ============================================================
+// URL短縮のための変換テーブル
+//   内部データ: { img, url, check }
+//   URL送信形式: { i, u, c } ＋ 空マスは省略
+// ============================================================
+
 let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
 let isParticipantMode = false;
 let currentEditIndex = null;
@@ -9,12 +15,59 @@ const modalUrl = document.getElementById('modalUrl');
 const modeBadge = document.getElementById('modeBadge');
 const boardTitle = document.getElementById('boardTitle');
 
+// ----- シリアライズ / デシリアライズ -----
+
+/**
+ * bingoData → URL文字列
+ * 工夫①: キーを短縮 (img→i, url→u, check→c)
+ * 工夫②: 空マスは省略し {index, ...} 形式でスパース送信
+ * 工夫③: lz-string で圧縮 → URLセーフBase64
+ */
+function serialize(data) {
+  const sparse = data.reduce((acc, cell, idx) => {
+    if (cell.img || cell.url) {
+      const entry = { n: idx };
+      if (cell.img)   entry.i = cell.img;
+      if (cell.url)   entry.u = cell.url;
+      // check は参加者側のローカル状態なので共有URLには含めない
+      acc.push(entry);
+    }
+    return acc;
+  }, []);
+  const json = JSON.stringify(sparse);
+  return LZString.compressToEncodedURIComponent(json);
+}
+
+/**
+ * URL文字列 → bingoData
+ * 旧フォーマット（btoa+encodeURIComponent）にも対応
+ */
+function deserialize(param) {
+  // まず lz-string で解凍を試みる
+  let json = LZString.decompressFromEncodedURIComponent(param);
+
+  if (json) {
+    const sparse = JSON.parse(json);
+    const data = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
+    sparse.forEach(entry => {
+      data[entry.n].img = entry.i || '';
+      data[entry.n].url = entry.u || '';
+    });
+    return data;
+  }
+
+  // フォールバック: 旧フォーマット (btoa + encodeURIComponent)
+  return JSON.parse(decodeURIComponent(atob(param)));
+}
+
+// ----- 初期化 -----
+
 function init() {
   const params = new URLSearchParams(window.location.search);
   const dataParam = params.get('data');
   if (dataParam) {
     try {
-      bingoData = JSON.parse(decodeURIComponent(atob(dataParam)));
+      bingoData = deserialize(dataParam);
       isParticipantMode = true;
       modeBadge.innerText = "参加者プレイモード";
       modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
@@ -27,6 +80,8 @@ function init() {
   }
   renderBoard();
 }
+
+// ----- 描画 -----
 
 function renderBoard() {
   gridContainer.innerHTML = '';
@@ -107,6 +162,8 @@ function renderBoard() {
   });
 }
 
+// ----- イベント -----
+
 document.getElementById('sampleA').addEventListener('click', () => { modalImgUrl.value = 'https://unsplash.com'; });
 document.getElementById('sampleB').addEventListener('click', () => { modalImgUrl.value = 'https://unsplash.com'; });
 document.getElementById('btnModalCancel').addEventListener('click', () => editModal.classList.add('hidden'));
@@ -120,7 +177,7 @@ document.getElementById('btnModalSave').addEventListener('click', () => {
 
 document.getElementById('btnShare').addEventListener('click', () => {
   try {
-    const serialized = btoa(encodeURIComponent(JSON.stringify(bingoData)));
+    const serialized = serialize(bingoData);
     const shareUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
     navigator.clipboard.writeText(shareUrl).then(() => {
       alert("【大成功】読書ビンゴのURLをコピーしました！\n\nこのURLを別のタブやスマホに送れば、この配置のまま参加者として遊んでもらえます！");
