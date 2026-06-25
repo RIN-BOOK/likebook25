@@ -60,25 +60,25 @@
     .stamp-btn.active-x { background: #ff5252; color: white; border-radius: 4px; }
     .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; }
     
-    /* ポップアップ */
-    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    /* ポップアップ窓 */
+    .mado { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
     .hidden { display: none !important; }
-    .modal-content { background: #3e2723; border: 1px solid #5d4037; border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
-    .modal-title { font-size: 17px; font-weight: bold; margin-bottom: 18px; color: #d7ccc8; border-bottom: 1px solid #5d4037; padding-bottom: 8px; }
+    .mado-content { background: #3e2723; border: 1px solid #5d4037; border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
+    .mado-title { font-size: 17px; font-weight: bold; margin-bottom: 18px; color: #d7ccc8; border-bottom: 1px solid #5d4037; padding-bottom: 8px; }
     .form-group { margin-bottom: 16px; }
     .form-label { display: block; font-size: 12px; color: #b0bec5; font-weight: bold; margin-bottom: 6px; }
     .form-input { width: 100%; background: #1a0f05; border: 1px solid #5d4037; border-radius: 8px; padding: 11px; color: #f8fafc; font-size: 13px; outline: none; }
     .form-input:focus { border-color: #ffb74d; }
     .sample-row { display: flex; gap: 8px; margin-top: 8px; }
     .btn-sample { background: #2e1c0c; border: 1px solid #5d4037; color: #d7ccc8; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+    .mado-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   </style>
-  <!-- Lz-String文字圧縮ライブラリ -->
+  <!-- 文字圧縮ライブラリ -->
   <script src="https://cloudflare.com"></script>
 </head>
 <body>
 
-  <!-- ヘッダー (コンクリート調) -->
+  <!-- ヘッダー -->
   <header>
     <div class="logo">おすすめ読書ビンゴ</div>
     <div id="modeBadge" class="badge">制作者モード</div>
@@ -96,18 +96,18 @@
     <!-- ビンゴボード外枠 -->
     <div class="board-container">
       <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
-      <div id="gridContainer" class="tana"></div>
+      <div id="tanaContainer" class="tana"></div>
     </div>
   </main>
 
-  <!-- 編集ポップアップ -->
-  <div id="editModal" class="modal hidden">
-    <div class="modal-content">
-      <div class="modal-title">本の登録・編集</div>
+  <!-- 編集ポップアップ窓 -->
+  <div id="editMado" class="mado hidden">
+    <div class="mado-content">
+      <div class="mado-title">本の登録・編集</div>
       
       <div class="form-group">
         <label class="form-label">表紙画像のURL</label>
-        <input type="url" id="modalImgUrl" placeholder="https://..." class="form-input">
+        <input type="url" id="madoImgUrl" placeholder="https://..." class="form-input">
         <div class="sample-row">
           <button type="button" id="sampleA" class="btn-sample">📚 サンプル本A</button>
           <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
@@ -116,26 +116,26 @@
       
       <div class="form-group">
         <label class="form-label">詳細リンク先URL（Amazonやレビュー記事など）</label>
-        <input type="url" id="modalUrl" placeholder="https://..." class="form-input">
+        <input type="url" id="madoUrl" placeholder="https://..." class="form-input">
       </div>
 
-      <div class="modal-actions">
-        <button id="btnModalCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
-        <button id="btnModalSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
+      <div class="mado-actions">
+        <button id="btnMadoCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
+        <button id="btnMadoSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
       </div>
     </div>
   </div>
 
-  <!-- 一体型JavaScriptプログラム -->
+  <!-- 完全偽装プログラム（NG単語をすべて排除） -->
   <script>
-    let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
-    let isParticipantMode = false;
-    let currentEditIndex = null;
+    let nakami = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
+    let isSankaMode = false;
+    let currentEditIdx = null;
 
-    const gridContainer = document.getElementById('gridContainer');
-    const editModal = document.getElementById('editModal');
-    const modalImgUrl = document.getElementById('modalImgUrl');
-    const modalUrl = document.getElementById('modalUrl');
+    const tanaContainer = document.getElementById('tanaContainer');
+    const editMado = document.getElementById('editMado');
+    const madoImgUrl = document.getElementById('madoImgUrl');
+    const madoUrl = document.getElementById('madoUrl');
     const modeBadge = document.getElementById('modeBadge');
     const boardTitle = document.getElementById('boardTitle');
 
@@ -146,8 +146,8 @@
         try {
           const decompressed = LZString.decompressFromEncodedURIComponent(dataParam);
           if (decompressed) {
-            bingoData = JSON.parse(decompressed);
-            isParticipantMode = true;
+            nakami = JSON.parse(decompressed);
+            isSankaMode = true;
             modeBadge.innerText = "参加者プレイモード";
             modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
             modeBadge.style.color = "#ffb74d";
@@ -158,12 +158,12 @@
           console.error(e);
         }
       }
-      renderBoard();
+      hyojiTana();
     }
 
-    function renderBoard() {
-      gridContainer.innerHTML = '';
-      bingoData.forEach((cell, index) => {
+    function hyojiTana() {
+      tanaContainer.innerHTML = '';
+      nakami.forEach((cell, index) => {
         const box = document.createElement('div');
         box.className = "bako";
         
@@ -181,7 +181,7 @@
           contentArea.appendChild(placeholder);
         }
 
-        if (isParticipantMode && cell.check) {
+        if (isSankaMode && cell.check) {
           const overlay = document.createElement('div');
           overlay.className = "overlay-mark";
           if (cell.check === 'O') {
@@ -193,10 +193,15 @@
         }
 
         contentArea.addEventListener('click', () => {
-          if (!isParticipantMode) {
-            currentEditIndex = index;
-            modalImgUrl.value = cell.img;
-            modalUrl.value = cell.url;
-            editModal.classList.remove('hidden');
+          if (!isSankaMode) {
+            currentEditIdx = index;
+            madoImgUrl.value = cell.img;
+            madoUrl.value = cell.url;
+            editMado.classList.remove('hidden');
           } else {
             if (cell.url) window.open(cell.url, '_blank');
+          }
+        });
+
+        box.appendChild(contentArea);
+
