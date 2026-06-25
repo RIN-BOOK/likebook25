@@ -5,8 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>おすすめ読書ビンゴ</title>
   <style>
-    /* デザイン定義（コンクリート＆木目調） */
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
     body {
       background-color: #3e2723;
       background-image: 
@@ -22,23 +21,18 @@
       border-bottom: 3px solid #3a3a3c; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
       padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
     }
-    .logo { font-size: 22px; font-weight: 800; color: #f2f2f7; letter-spacing: 1.5px; }
+    .logo { font-size: 22px; font-weight: 800; color: #f2f2f7; }
     .badge { padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: bold; background: rgba(0, 0, 0, 0.4); color: #e5e5ea; }
     main { max-width: 600px; margin: 30px auto; padding: 0 15px; display: flex; flex-direction: column; align-items: center; }
     .info-bar { width: 100%; background: rgba(0, 0, 0, 0.5); padding: 12px; border-radius: 10px; font-size: 13px; color: #d1d1d6; text-align: center; margin-bottom: 20px; }
-    .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; flex-wrap: wrap; }
-    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; min-width: 140px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s; }
+    .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; }
+    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
     .btn-indigo { background: #8e24aa; color: white; border-bottom: 3px solid #6a1b9a; }
-    .btn-indigo:hover { background: #9c27b0; }
-    .btn-slate { background: #455a64; color: white; border-bottom: 3px solid #263238; }
-    .btn-slate:hover { background: #546e7a; }
     .btn-rose { background: #c62828; color: white; border-bottom: 3px solid #9e1c1c; }
-    .btn-rose:hover { background: #d32f2f; }
     .board-container { background: rgba(20, 10, 5, 0.75); border: 2px solid #2d1500; border-radius: 20px; padding: 20px; width: 100%; box-shadow: 0 25px 30px rgba(0, 0, 0, 0.6); }
     .board-title { text-align: center; font-size: 19px; font-weight: bold; color: #d7ccc8; margin-bottom: 18px; letter-spacing: 2px; }
     .tana { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
-    .bako { background: #2e1c0c; border: 1px solid #4e342e; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
-    .bako:hover { transform: scale(1.04); transition: 0.2s; }
+    .bako { background: #2e1c0c; border: 1px solid #4e342e; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
     .bako-img-area { width: 100%; aspect-ratio: 3 / 4; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #1a0f05; position: relative; }
     .bako-img-area img { width: 100%; height: 100%; object-fit: cover; }
     .placeholder { font-size: 11px; color: #8d6e63; font-weight: bold; }
@@ -46,29 +40,62 @@
     .status-ok { color: #ffb74d; }
     .status-none { color: #5d4037; }
     .stamp-btn { background: none; border: none; color: #8d6e63; font-weight: bold; font-size: 10px; cursor: pointer; padding: 2px 6px; }
-    .stamp-btn.active-o { background: #ffb74d; color: #150900; border-radius: 4px; }
-    .stamp-btn.active-x { background: #ff5252; color: white; border-radius: 4px; }
-    .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; pointer-events: none; }
-    .mado { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    .stamp-btn.active-o { background: #ffb74d; color: #150900; }
+    .stamp-btn.active-x { background: #ff5252; color: white; }
+    .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
     .hidden { display: none !important; }
-    .mado-content { background: #3e2723; border: 1px solid #5d4037; border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
-    .mado-title { font-size: 17px; font-weight: bold; margin-bottom: 18px; color: #d7ccc8; border-bottom: 1px solid #5d4037; padding-bottom: 8px; }
+    .modal-content { background: #3e2723; border: 1px solid #5d4037; border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; }
+    .modal-title { font-size: 17px; font-weight: bold; margin-bottom: 18px; color: #d7ccc8; border-bottom: 1px solid #5d4037; padding-bottom: 8px; }
     .form-group { margin-bottom: 16px; }
     .form-label { display: block; font-size: 12px; color: #b0bec5; font-weight: bold; margin-bottom: 6px; }
     .form-input { width: 100%; background: #1a0f05; border: 1px solid #5d4037; border-radius: 8px; padding: 11px; color: #f8fafc; font-size: 13px; outline: none; }
-    .form-input:focus { border-color: #ffb74d; }
     .sample-row { display: flex; gap: 8px; margin-top: 8px; }
     .btn-sample { background: #2e1c0c; border: 1px solid #5d4037; color: #d7ccc8; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
-    .mado-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
-    .loader-text { color: #ffb74d; font-size: 12px; font-weight: bold; text-align: center; margin-top: 8px; display: none; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   </style>
+</head>
+<body>
+  <header>
+    <div class="logo">おすすめ読書ビンゴ</div>
+    <div id="modeBadge" class="badge">制作者モード</div>
+  </header>
+  <main>
+    <div class="info-bar">📖 マスをクリックして、表紙画像のURLと紹介リンクを設定してください。</div>
+    <div class="ctrl-btns">
+      <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
+      <button id="btnReset" class="btn btn-rose">盤面リセット</button>
+    </div>
+    <div class="board-container">
+      <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
+      <div id="gridContainer" class="tana"></div>
+    </div>
+  </main>
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-title">本の登録・編集</div>
+      <div class="form-group">
+        <label class="form-label">表紙画像のURL</label>
+        <input type="url" id="modalImgUrl" placeholder="https://..." class="form-input">
+        <div class="sample-row">
+          <button type="button" id="sampleA" class="btn-sample">📚 サンプル本A</button>
+          <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">詳細リンク先URL（Amazonやレビュー記事など）</label>
+        <input type="url" id="modalUrl" placeholder="https://..." class="form-input">
+      </div>
+      <div class="modal-actions">
+        <button id="btnModalCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
+        <button id="btnModalSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
+      </div>
+    </div>
+  </div>
 
-  <!-- ================================================================= -->
-  <!-- ★ 核心：外部通信を遮断されても確実に動くよう、ライブラリを完全内蔵化 -->
-  <!-- ================================================================= -->
-  <script>
-    /* 1. LZ-String 圧縮プログラム完全内蔵 */
-    var LZString={_f:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",_g:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$",compressToEncodedURIComponent:function(a){if(null==a)return"";var b=LZString._h(a,6,function(a){return LZString._g.charAt(a)});return b},decompressFromEncodedURIComponent:function(a){if(null==a)return"";if(""==a)return null;a=a.replace(/ /g,"+");return LZString._i(a.length,32,function(b){return LZString._j(LZString._g,a.charAt(b))})},_h:function(a,b,c){if(null==a)return"";var d,e,f,g={},h={},i="",j="",k="",l=2,m=3,n=2,o=[],p=0,q=0;for(f=0;f<a.length;f+=1)if(k=a.charAt(f),Object.prototype.hasOwnProperty.call(g,k)||(g[k]=m++,h[k]=!0),j=i+k,Object.prototype.hasOwnProperty.call(g,j))i=j;else{if(Object.prototype.hasOwnProperty.call(h,i)){if(i.charCodeAt(0)<256){for(d=0;d<n;d++)p=p<<1,p==b-1?(p=0,o.push(c(q)),q=0):q++;for(e=i.charCodeAt(0),d=0;d<8;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}else{for(e=1,d=0;d<n;d++)p=p<<1|e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e=0;for(e=i.charCodeAt(0),d=0;d<16;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++),delete h[i]}else{for(e=g[i],d=0;d<n;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++),g[j]=m++,i=String(k)}if(""!==i){if(Object.prototype.hasOwnProperty.call(h,i)){if(i.charCodeAt(0)<256){for(d=0;d<n;d++)p=p<<1,p==b-1?(p=0,o.push(c(q)),q=0):q++;for(e=i.charCodeAt(0),d=0;d<8;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}else{for(e=1,d=0;d<n;d++)p=p<<1|e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e=0;for(e=i.charCodeAt(0),d=0;d<16;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++),delete h[i]}else{for(e=g[i],d=0;d<n;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++)}for(e=2,d=0;d<n;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1;for(;;){if(p=p<<1,p==b-1){o.push(c(q));break}q++}return o.join("")},_i:function(a,b,c){var d,e,f,g,h,i,j,k=[],l=4,m=4,n=3,o="",p=[],q={val:c(0),position:b,index:1};for(d=0;d<3;d+=1)k[d]=d;for(f=0,g=Math.pow(2,2),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;switch(f){case 0:for(f=0,g=Math.pow(2,8),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;j=String.fromCharCode(f);break;case 1:for(f=0,g=Math.pow(2,16),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;j=String.fromCharCode(f);break;case 2:return""}for(k[3]=j,g=j,p.push(j);;){if(q.index>a)return"";for(f=0,g=Math.pow(2,n),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;switch(j=f){case 0:for(f=0,g=Math.pow(2,8),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;k[m++]=String.fromCharCode(f),j=m-1,l--;break;case 1:for(f=0,g=Math.pow(2,16),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;k[m++]=String.fromCharCode(f),j=m-1,l--;break;case 2:return p.join("")}if(0==l&&(l=Math.pow(2,n),n++),k[j])o=k[j];else{if(j!==m)return null;o=g+g.charAt(0)}p.push(o),k[m++]=g+o.charAt(0),l--,g=o,0==l&&(l=Math.pow(2,n),n++)}},_j:function(a,b){return a.indexOf(b)}};
-  </script>
-  <script>
-    /* 2. html2canvas 超軽量コア部分の完全内蔵（安全に画像化を実行するコード） */
+  <!-- URL圧縮ライブラリ（lz-string） -->
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <!-- ★ここに注目：プログラムを外部の別ファイルから安全に読み込む命令です -->
+  <script src="app.js"></script>
+</body>
+</html>
