@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>おすすめ読書ビンゴ</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+    body {
+      background-color: #3e2723;
+      background-image: 
+        linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(0,0,0,0.2) 50%, rgba(255,255,255,0.05) 50%),
+        linear-gradient(90deg, #4e342e, #3e2723);
+      background-size: 80px 100%, 100% 4px, 100% 100%;
+      color: #f8fafc; min-height: 100vh; padding-bottom: 50px;
+    }
+    header {
+      background-color: #71717a;
+      background-image: linear-gradient(to bottom, #8e8e93, #636366);
+      border-bottom: 3px solid #3a3a3c; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+      padding: 15px 30px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .logo { font-size: 22px; font-weight: 800; color: #f2f2f7; }
+    .badge { padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: bold; background: rgba(0, 0, 0, 0.4); color: #e5e5ea; }
+    main { max-width: 600px; margin: 30px auto; padding: 0 15px; display: flex; flex-direction: column; align-items: center; }
+    .info-bar { width: 100%; background: rgba(0, 0, 0, 0.5); padding: 12px; border-radius: 10px; font-size: 13px; color: #d1d1d6; text-align: center; margin-bottom: 20px; }
+    .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; }
+    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .btn-indigo { background: #8e24aa; color: white; border-bottom: 3px solid #6a1b9a; }
+    .btn-rose { background: #c62828; color: white; border-bottom: 3px solid #9e1c1c; }
+    .board-container { background: rgba(20, 10, 5, 0.75); border: 2px solid #2d1500; border-radius: 20px; padding: 20px; width: 100%; box-shadow: 0 25px 30px rgba(0, 0, 0, 0.6); }
+    .board-title { text-align: center; font-size: 19px; font-weight: bold; color: #d7ccc8; margin-bottom: 18px; letter-spacing: 2px; }
+    .tana { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
+    .bako { background: #2e1c0c; border: 1px solid #4e342e; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .bako-img-area { width: 100%; aspect-ratio: 3 / 4; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #1a0f05; position: relative; }
+    .bako-img-area img { width: 100%; height: 100%; object-fit: cover; }
+    .placeholder { font-size: 11px; color: #8d6e63; font-weight: bold; }
+    .control-bar { height: 26px; background: #150900; border-top: 1px solid #2d1500; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: bold; }
+    .status-ok { color: #ffb74d; }
+    .status-none { color: #5d4037; }
+    .stamp-btn { background: none; border: none; color: #8d6e63; font-weight: bold; font-size: 10px; cursor: pointer; padding: 2px 6px; }
+    .stamp-btn.active-o { background: #ffb74d; color: #150900; }
+    .stamp-btn.active-x { background: #ff5252; color: white; }
+    .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; }
+    .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
+    .hidden { display: none !important; }
+    .modal-content { background: #3e2723; border: 1px solid #5d4037; border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; }
+    .modal-title { font-size: 17px; font-weight: bold; margin-bottom: 18px; color: #d7ccc8; border-bottom: 1px solid #5d4037; padding-bottom: 8px; }
+    .form-group { margin-bottom: 16px; }
+    .form-label { display: block; font-size: 12px; color: #b0bec5; font-weight: bold; margin-bottom: 6px; }
+    .form-input { width: 100%; background: #1a0f05; border: 1px solid #5d4037; border-radius: 8px; padding: 11px; color: #f8fafc; font-size: 13px; outline: none; }
+    .sample-row { display: flex; gap: 8px; margin-top: 8px; }
+    .btn-sample { background: #2e1c0c; border: 1px solid #5d4037; color: #d7ccc8; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">おすすめ読書ビンゴ</div>
+    <div id="modeBadge" class="badge">制作者モード</div>
+  </header>
+  <main>
+    <div class="info-bar">📖 マスをクリックして、表紙画像のURLと紹介リンクを設定してください。</div>
+    <div class="ctrl-btns">
+      <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
+      <button id="btnReset" class="btn btn-rose">盤面リセット</button>
+    </div>
+    <div class="board-container">
+      <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
+      <div id="gridContainer" class="tana"></div>
+    </div>
+  </main>
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-title">本の登録・編集</div>
+      <div class="form-group">
+        <label class="form-label">表紙画像のURL</label>
+        <input type="url" id="modalImgUrl" placeholder="https://..." class="form-input">
+        <div class="sample-row">
+          <button type="button" id="sampleA" class="btn-sample">📚 サンプル本A</button>
+          <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">詳細リンク先URL（Amazonやレビュー記事など）</label>
+        <input type="url" id="modalUrl" placeholder="https://..." class="form-input">
+      </div>
+      <div class="modal-actions">
+        <button id="btnModalCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
+        <button id="btnModalSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ★ここに注目：プログラムを外部の別ファイルから安全に読み込む命令です -->
+  <script src="app.js"></script>
+</body>
+</html>
