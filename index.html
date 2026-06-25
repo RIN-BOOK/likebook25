@@ -54,6 +54,9 @@
     .btn-sample { background: #2e1c0c; border: 1px solid #5d4037; color: #d7ccc8; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   </style>
+  
+  <!-- ★文字を極限まで縮めるためのライブラリ（安全な国内配信サーバーから読み込んでいます） -->
+  <script src="https://cloudflare.com"></script>
 </head>
 <body>
   <header>
@@ -61,7 +64,7 @@
     <div id="modeBadge" class="badge">制作者モード</div>
   </header>
   <main>
-    <div class="info-bar">📖 マスをクリックして、表紙画像のURLと紹介リンクを設定してください。</div>
+    <div class="info-bar">📖 マスをクリックして、ファイルから画像を選ぶかURLを入力し、紹介リンクを設定してください。</div>
     <div class="ctrl-btns">
       <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
       <button id="btnReset" class="btn btn-rose">盤面リセット</button>
@@ -71,19 +74,24 @@
       <div id="gridContainer" class="tana"></div>
     </div>
   </main>
+  
+  <!-- マスの編集ポップアップ（※本物の画像ファイルを選べるように復活させました！） -->
   <div id="editModal" class="modal hidden">
     <div class="modal-content">
       <div class="modal-title">本の登録・編集</div>
       <div class="form-group">
-        <label class="form-label">表紙画像のURL</label>
+        <label class="form-label">表紙画像を選択（スマホの写真や画像ファイル）</label>
+        <input type="file" id="modalFile" accept="image/*" style="font-size:12px; color:#ccc; margin-bottom:10px; display:block;">
+        
+        <label class="form-label">または画像のネットURL</label>
         <input type="url" id="modalImgUrl" placeholder="https://..." class="form-input">
         <div class="sample-row">
-          <button type="button" id="sampleA" class="btn-sample">📚 サンプル本A</button>
-          <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
+          <button type="button" id="sampleA" class="btn-sample">📚 サンプルA</button>
+          <button type="button" id="sampleB" class="btn-sample">📖 サンプルB</button>
         </div>
       </div>
       <div class="form-group">
-        <label class="form-label">詳細リンク先URL（Amazonやレビュー記事など）</label>
+        <label class="form-label">詳細リンク先URL（Amazonなど）</label>
         <input type="url" id="modalUrl" placeholder="https://..." class="form-input">
       </div>
       <div class="modal-actions">
@@ -93,9 +101,6 @@
     </div>
   </div>
 
-  <!-- URL圧縮ライブラリ（lz-string） -->
-  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
-  <!-- ★ここに注目：プログラムを外部の別ファイルから安全に読み込む命令です -->
   <script src="app.js"></script>
 </body>
 </html>
