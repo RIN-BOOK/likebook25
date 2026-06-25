@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>おすすめ読書ビンゴ</title>
   <style>
+    /* デザイン定義（コンクリート＆木目調） */
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
     body {
       background-color: #3e2723;
@@ -61,48 +62,13 @@
     .mado-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
     .loader-text { color: #ffb74d; font-size: 12px; font-weight: bold; text-align: center; margin-top: 8px; display: none; }
   </style>
-  <script src="https://cloudflare.com"></script>
-  <script src="https://cloudflare.com"></script>
-</head>
-<body>
-  <header>
-    <div class="logo">おすすめ読書ビンゴ</div>
-    <div id="modeBadge" class="badge">制作者モード</div>
-  </header>
-  <main>
-    <div class="info-bar">📖 マスをクリックして、表紙画像のネットURLと紹介リンクを設定してください。</div>
-    <div class="ctrl-btns">
-      <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
-      <button id="btnDownload" class="btn btn-slate">PNG画像として出力</button>
-      <button id="btnReset" class="btn btn-rose">盤面リセット</button>
-    </div>
-    <div id="captureArea" class="board-container">
-      <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
-      <div id="tanaContainer" class="tana"></div>
-    </div>
-  </main>
-  <div id="editMado" class="mado hidden">
-    <div class="mado-content">
-      <div class="mado-title">本の登録・編集</div>
-      <div class="form-group">
-        <label class="form-label">表紙画像のURL</label>
-        <input type="url" id="madoImgUrl" placeholder="https://..." class="form-input">
-        <div class="sample-row">
-          <button type="button" id="sampleA" class="btn-sample">📚 サンプル本A</button>
-          <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
-        </div>
-      </div>
-      <div class="form-group">
-        <label class="form-label">詳細リンク先URL（Amazonなど）</label>
-        <input type="url" id="madoUrl" placeholder="https://..." class="form-input">
-      </div>
-      <div id="processingText" class="loader-text">⏳ 画像を最適化中...</div>
-      <div class="mado-actions">
-        <button id="btnMadoCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
-        <button id="btnMadoSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
-      </div>
-    </div>
-  </div>
-  <script src="app.js"></script>
-</body>
-</html>
+
+  <!-- ================================================================= -->
+  <!-- ★ 核心：外部通信を遮断されても確実に動くよう、ライブラリを完全内蔵化 -->
+  <!-- ================================================================= -->
+  <script>
+    /* 1. LZ-String 圧縮プログラム完全内蔵 */
+    var LZString={_f:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=",_g:"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-$",compressToEncodedURIComponent:function(a){if(null==a)return"";var b=LZString._h(a,6,function(a){return LZString._g.charAt(a)});return b},decompressFromEncodedURIComponent:function(a){if(null==a)return"";if(""==a)return null;a=a.replace(/ /g,"+");return LZString._i(a.length,32,function(b){return LZString._j(LZString._g,a.charAt(b))})},_h:function(a,b,c){if(null==a)return"";var d,e,f,g={},h={},i="",j="",k="",l=2,m=3,n=2,o=[],p=0,q=0;for(f=0;f<a.length;f+=1)if(k=a.charAt(f),Object.prototype.hasOwnProperty.call(g,k)||(g[k]=m++,h[k]=!0),j=i+k,Object.prototype.hasOwnProperty.call(g,j))i=j;else{if(Object.prototype.hasOwnProperty.call(h,i)){if(i.charCodeAt(0)<256){for(d=0;d<n;d++)p=p<<1,p==b-1?(p=0,o.push(c(q)),q=0):q++;for(e=i.charCodeAt(0),d=0;d<8;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}else{for(e=1,d=0;d<n;d++)p=p<<1|e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e=0;for(e=i.charCodeAt(0),d=0;d<16;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++),delete h[i]}else{for(e=g[i],d=0;d<n;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++),g[j]=m++,i=String(k)}if(""!==i){if(Object.prototype.hasOwnProperty.call(h,i)){if(i.charCodeAt(0)<256){for(d=0;d<n;d++)p=p<<1,p==b-1?(p=0,o.push(c(q)),q=0):q++;for(e=i.charCodeAt(0),d=0;d<8;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}else{for(e=1,d=0;d<n;d++)p=p<<1|e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e=0;for(e=i.charCodeAt(0),d=0;d<16;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++),delete h[i]}else{for(e=g[i],d=0;d<n;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1}l--,0==l&&(l=Math.pow(2,n),n++)}for(e=2,d=0;d<n;d++)p=p<<1|1&e,p==b-1?(p=0,o.push(c(q)),q=0):q++,e>>=1;for(;;){if(p=p<<1,p==b-1){o.push(c(q));break}q++}return o.join("")},_i:function(a,b,c){var d,e,f,g,h,i,j,k=[],l=4,m=4,n=3,o="",p=[],q={val:c(0),position:b,index:1};for(d=0;d<3;d+=1)k[d]=d;for(f=0,g=Math.pow(2,2),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;switch(f){case 0:for(f=0,g=Math.pow(2,8),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;j=String.fromCharCode(f);break;case 1:for(f=0,g=Math.pow(2,16),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;j=String.fromCharCode(f);break;case 2:return""}for(k[3]=j,g=j,p.push(j);;){if(q.index>a)return"";for(f=0,g=Math.pow(2,n),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;switch(j=f){case 0:for(f=0,g=Math.pow(2,8),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;k[m++]=String.fromCharCode(f),j=m-1,l--;break;case 1:for(f=0,g=Math.pow(2,16),h=1;h!=g;)e=q.val&q.position,q.position>>=1,0==q.position&&(q.position=b,q.val=c(q.index++)),f|=(e>0?1:0)*h,h<<=1;k[m++]=String.fromCharCode(f),j=m-1,l--;break;case 2:return p.join("")}if(0==l&&(l=Math.pow(2,n),n++),k[j])o=k[j];else{if(j!==m)return null;o=g+g.charAt(0)}p.push(o),k[m++]=g+o.charAt(0),l--,g=o,0==l&&(l=Math.pow(2,n),n++)}},_j:function(a,b){return a.indexOf(b)}};
+  </script>
+  <script>
+    /* 2. html2canvas 超軽量コア部分の完全内蔵（安全に画像化を実行するコード） */
