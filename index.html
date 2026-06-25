@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>おすすめ読書ビンゴ</title>
   <style>
-    /* 全体デザイン：木目調とコンクリート調の完全な定義 */
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Helvetica Neue', Arial, sans-serif; }
-    
     body {
       background-color: #3e2723;
       background-image: 
@@ -17,7 +15,6 @@
       background-size: 80px 100%, 100% 4px, 100% 100%;
       color: #f8fafc; min-height: 100vh; padding-bottom: 50px;
     }
-
     header {
       background-color: #71717a;
       background-image: linear-gradient(to bottom, #8e8e93, #636366);
@@ -26,10 +23,8 @@
     }
     .logo { font-size: 22px; font-weight: 800; color: #f2f2f7; letter-spacing: 1.5px; }
     .badge { padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: bold; background: rgba(0, 0, 0, 0.4); color: #e5e5ea; }
-
     main { max-width: 600px; margin: 30px auto; padding: 0 15px; display: flex; flex-direction: column; align-items: center; }
     .info-bar { width: 100%; background: rgba(0, 0, 0, 0.5); padding: 12px; border-radius: 10px; font-size: 13px; color: #d1d1d6; text-align: center; margin-bottom: 20px; }
-    
     .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; flex-wrap: wrap; }
     .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; min-width: 140px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s; }
     .btn-indigo { background: #8e24aa; color: white; border-bottom: 3px solid #6a1b9a; }
@@ -38,31 +33,21 @@
     .btn-slate:hover { background: #546e7a; }
     .btn-rose { background: #c62828; color: white; border-bottom: 3px solid #9e1c1c; }
     .btn-rose:hover { background: #d32f2f; }
-    
     .board-container { background: rgba(20, 10, 5, 0.75); border: 2px solid #2d1500; border-radius: 20px; padding: 20px; width: 100%; box-shadow: 0 25px 30px rgba(0, 0, 0, 0.6); }
     .board-title { text-align: center; font-size: 19px; font-weight: bold; color: #d7ccc8; margin-bottom: 18px; letter-spacing: 2px; }
-    
-    /* 5列の本棚 */
     .tana { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
-    /* 縦長4:3の本のマス */
     .bako { background: #2e1c0c; border: 1px solid #4e342e; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 4px 6px rgba(0,0,0,0.4); }
     .bako:hover { transform: scale(1.04); transition: 0.2s; }
-    
     .bako-img-area { width: 100%; aspect-ratio: 3 / 4; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #1a0f05; position: relative; }
     .bako-img-area img { width: 100%; height: 100%; object-fit: cover; }
     .placeholder { font-size: 11px; color: #8d6e63; font-weight: bold; }
-    
     .control-bar { height: 26px; background: #150900; border-top: 1px solid #2d1500; display: flex; justify-content: center; align-items: center; font-size: 9px; font-weight: bold; }
     .status-ok { color: #ffb74d; }
     .status-none { color: #5d4037; }
-    
-    /* スタンプ表示 */
     .stamp-btn { background: none; border: none; color: #8d6e63; font-weight: bold; font-size: 10px; cursor: pointer; padding: 2px 6px; }
     .stamp-btn.active-o { background: #ffb74d; color: #150900; border-radius: 4px; }
     .stamp-btn.active-x { background: #ff5252; color: white; border-radius: 4px; }
     .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; pointer-events: none; }
-    
-    /* ポップアップ窓 */
     .mado { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
     .hidden { display: none !important; }
     .mado-content { background: #3e2723; border: 1px solid #5d4037; border-radius: 16px; width: 100%; max-width: 400px; padding: 25px; box-shadow: 0 30px 60px rgba(0,0,0,0.7); }
@@ -74,40 +59,31 @@
     .sample-row { display: flex; gap: 8px; margin-top: 8px; }
     .btn-sample { background: #2e1c0c; border: 1px solid #5d4037; color: #d7ccc8; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
     .mado-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
+    .loader-text { color: #ffb74d; font-size: 12px; font-weight: bold; text-align: center; margin-top: 8px; display: none; }
   </style>
-  
-  <!-- ライブラリの安全な読み込み -->
   <script src="https://cloudflare.com"></script>
   <script src="https://cloudflare.com"></script>
 </head>
 <body>
-
   <header>
     <div class="logo">おすすめ読書ビンゴ</div>
     <div id="modeBadge" class="badge">制作者モード</div>
   </header>
-
   <main>
     <div class="info-bar">📖 マスをクリックして、表紙画像のネットURLと紹介リンクを設定してください。</div>
-    
     <div class="ctrl-btns">
       <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
       <button id="btnDownload" class="btn btn-slate">PNG画像として出力</button>
       <button id="btnReset" class="btn btn-rose">盤面リセット</button>
     </div>
-
-    <!-- ビンゴボード外枠 (画像出力の対象エリア) -->
     <div id="captureArea" class="board-container">
       <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
       <div id="tanaContainer" class="tana"></div>
     </div>
   </main>
-
-  <!-- 編集ポップアップ窓 -->
   <div id="editMado" class="mado hidden">
     <div class="mado-content">
       <div class="mado-title">本の登録・編集</div>
-      
       <div class="form-group">
         <label class="form-label">表紙画像のURL</label>
         <input type="url" id="madoImgUrl" placeholder="https://..." class="form-input">
@@ -116,20 +92,17 @@
           <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
         </div>
       </div>
-      
       <div class="form-group">
-        <label class="form-label">詳細リンク先URL（Amazonやレビュー記事など）</label>
+        <label class="form-label">詳細リンク先URL（Amazonなど）</label>
         <input type="url" id="madoUrl" placeholder="https://..." class="form-input">
       </div>
-
+      <div id="processingText" class="loader-text">⏳ 画像を最適化中...</div>
       <div class="mado-actions">
         <button id="btnMadoCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
         <button id="btnMadoSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
       </div>
     </div>
   </div>
-
-  <!-- 独立したプログラムファイルを読み込む -->
   <script src="app.js"></script>
 </body>
 </html>
