@@ -29,11 +29,13 @@
 
     main { max-width: 600px; margin: 30px auto; padding: 0 15px; display: flex; flex-direction: column; align-items: center; }
     .info-bar { width: 100%; background: rgba(0, 0, 0, 0.5); padding: 12px; border-radius: 10px; font-size: 13px; color: #d1d1d6; text-align: center; margin-bottom: 20px; }
-    .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; }
     
-    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s; }
+    .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; flex-wrap: wrap; }
+    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; min-width: 140px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); transition: 0.2s; }
     .btn-indigo { background: #8e24aa; color: white; border-bottom: 3px solid #6a1b9a; }
     .btn-indigo:hover { background: #9c27b0; }
+    .btn-slate { background: #455a64; color: white; border-bottom: 3px solid #263238; }
+    .btn-slate:hover { background: #546e7a; }
     .btn-rose { background: #c62828; color: white; border-bottom: 3px solid #9e1c1c; }
     .btn-rose:hover { background: #d32f2f; }
     
@@ -54,11 +56,11 @@
     .status-ok { color: #ffb74d; }
     .status-none { color: #5d4037; }
     
-    /* スタンプ */
+    /* スタンプ表示 */
     .stamp-btn { background: none; border: none; color: #8d6e63; font-weight: bold; font-size: 10px; cursor: pointer; padding: 2px 6px; }
     .stamp-btn.active-o { background: #ffb74d; color: #150900; border-radius: 4px; }
     .stamp-btn.active-x { background: #ff5252; color: white; border-radius: 4px; }
-    .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; }
+    .overlay-mark { position: absolute; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; font-size: 30px; font-weight: bold; pointer-events: none; }
     
     /* ポップアップ窓 */
     .mado { position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; align-items: center; justify-content: center; padding: 20px; z-index: 100; }
@@ -73,28 +75,29 @@
     .btn-sample { background: #2e1c0c; border: 1px solid #5d4037; color: #d7ccc8; font-size: 11px; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
     .mado-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; }
   </style>
-  <!-- 文字圧縮ライブラリ -->
+  
+  <!-- ライブラリの安全な読み込み -->
+  <script src="https://cloudflare.com"></script>
   <script src="https://cloudflare.com"></script>
 </head>
 <body>
 
-  <!-- ヘッダー -->
   <header>
     <div class="logo">おすすめ読書ビンゴ</div>
     <div id="modeBadge" class="badge">制作者モード</div>
   </header>
 
-  <!-- メイン -->
   <main>
     <div class="info-bar">📖 マスをクリックして、表紙画像のネットURLと紹介リンクを設定してください。</div>
     
     <div class="ctrl-btns">
       <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
+      <button id="btnDownload" class="btn btn-slate">PNG画像として出力</button>
       <button id="btnReset" class="btn btn-rose">盤面リセット</button>
     </div>
 
-    <!-- ビンゴボード外枠 -->
-    <div class="board-container">
+    <!-- ビンゴボード外枠 (画像出力の対象エリア) -->
+    <div id="captureArea" class="board-container">
       <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
       <div id="tanaContainer" class="tana"></div>
     </div>
@@ -126,82 +129,7 @@
     </div>
   </div>
 
-  <!-- 完全偽装プログラム（NG単語をすべて排除） -->
-  <script>
-    let nakami = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
-    let isSankaMode = false;
-    let currentEditIdx = null;
-
-    const tanaContainer = document.getElementById('tanaContainer');
-    const editMado = document.getElementById('editMado');
-    const madoImgUrl = document.getElementById('madoImgUrl');
-    const madoUrl = document.getElementById('madoUrl');
-    const modeBadge = document.getElementById('modeBadge');
-    const boardTitle = document.getElementById('boardTitle');
-
-    function init() {
-      const params = new URLSearchParams(window.location.search);
-      const dataParam = params.get('p');
-      if (dataParam) {
-        try {
-          const decompressed = LZString.decompressFromEncodedURIComponent(dataParam);
-          if (decompressed) {
-            nakami = JSON.parse(decompressed);
-            isSankaMode = true;
-            modeBadge.innerText = "参加者プレイモード";
-            modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
-            modeBadge.style.color = "#ffb74d";
-            boardTitle.innerText = "読書ビンゴに挑戦中！";
-            document.getElementById('btnShare').classList.add('hidden');
-          }
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      hyojiTana();
-    }
-
-    function hyojiTana() {
-      tanaContainer.innerHTML = '';
-      nakami.forEach((cell, index) => {
-        const box = document.createElement('div');
-        box.className = "bako";
-        
-        const contentArea = document.createElement('div');
-        contentArea.className = "bako-img-area";
-        
-        if (cell.img) {
-          const img = document.createElement('img');
-          img.src = cell.img;
-          contentArea.appendChild(img);
-        } else {
-          const placeholder = document.createElement('div');
-          placeholder.className = "placeholder";
-          placeholder.innerText = "BOOK " + (index + 1);
-          contentArea.appendChild(placeholder);
-        }
-
-        if (isSankaMode && cell.check) {
-          const overlay = document.createElement('div');
-          overlay.className = "overlay-mark";
-          if (cell.check === 'O') {
-            overlay.innerHTML = '<span style="color:#ffb74d; border:3px solid #ffb74d; border-radius:50%; width:36px; height:36px; display:inline-flex; align-items:center; justify-content:center;"></span>';
-          } else if (cell.check === 'X') {
-            overlay.innerHTML = '<span style="color:#ff5252;">✕</span>';
-          }
-          contentArea.appendChild(overlay);
-        }
-
-        contentArea.addEventListener('click', () => {
-          if (!isSankaMode) {
-            currentEditIdx = index;
-            madoImgUrl.value = cell.img;
-            madoUrl.value = cell.url;
-            editMado.classList.remove('hidden');
-          } else {
-            if (cell.url) window.open(cell.url, '_blank');
-          }
-        });
-
-        box.appendChild(contentArea);
-
+  <!-- 独立したプログラムファイルを読み込む -->
+  <script src="app.js"></script>
+</body>
+</html>
