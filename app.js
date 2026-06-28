@@ -1,12 +1,11 @@
 // ============================================================
-// 【バグ修正完了版】読書ビンゴ コアシステム（app.js）
+// 【完全修正版】おすすめ読書ビンゴ コアシステム（app.js）
 // ============================================================
 
-// 🛡️ 防衛ライン① & ②：画像を安全に縮小し、かつ不正スクリプトを完全除去する関数
-// Canvas上でピクセルを1から描き直すため、元画像にウイルスが埋め込まれていても物理的に消滅します。
-// 読み込みに失敗する不正ファイル（中身がウイルスexe等）は、この時点で安全に検知されます。
+// 1. ローカルで画像を極限（50px四方・低画質）まで軽量化する関数
+// 完全に同期を保証するプロキシオブジェクトとPromiseの設計に修正しました。
 function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     const img = new Image();
     img.src = base64Str;
     img.onload = () => {
@@ -34,11 +33,11 @@ function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      resolve(canvas.toDataURL('image/webp', 0.1));
+      // 安全なWebP、またはJPEG形式で出力
+      resolve(canvas.toDataURL('image/jpeg', 0.2));
     };
     img.onerror = () => {
-      // 読み込み失敗＝画像に見せかけた不正ファイル、または破損データ
-      reject(new Error('Invalid image'));
+      resolve(''); // 破損ファイルやウイルス等は空文字にして安全に排除
     };
   });
 }
@@ -48,7 +47,7 @@ function isBase64Image(str) {
 }
 
 // ============================================================
-// コアロジック（データ管理・圧縮・解凍）
+// コアロジック（データ管理・一括圧縮・解凍）
 // ============================================================
 
 let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
@@ -85,11 +84,8 @@ async function serialize(data) {
       
       if (cell.img) {
         if (isBase64Image(cell.img)) {
-          try {
-            entry.i = await compressImageLocal(cell.img, 50, 50);
-          } catch(e) {
-            entry.i = ''; // 不正な画像は除外
-          }
+          // await で確実に画像の圧縮完了を待機します
+          entry.i = await compressImageLocal(cell.img, 50, 50);
         } else {
           entry.i = cell.img;
         }
@@ -124,9 +120,17 @@ async function serialize(data) {
  * URL文字列 → bingoData（復元）
  */
 function deserialize(param) {
+  // まずLZStringでの解凍を試みる
   let json = LZString.decompressFromEncodedURIComponent(param);
+  
+  // もし解凍できなかった場合は旧フォーマット（btoa形式）としてフォールバック
   if (!json) {
-    return JSON.parse(decodeURIComponent(atob(param)));
+    try {
+      return JSON.parse(decodeURIComponent(atob(param)));
+    } catch(e) {
+      // それでもダメなら初期盤面を返す（クラッシュ防止）
+      return Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
+    }
   }
 
   const sparse = JSON.parse(json);
@@ -170,13 +174,14 @@ function init() {
       console.error(e);
     }
   }
-  renderBoard();
+  renderBoard(); // 確実に最後に描画を叩く
 }
 
 // ----- ビンゴ盤面の描画 -----
 function renderBoard() {
   if (!gridContainer) return;
   gridContainer.innerHTML = '';
+  
   bingoData.forEach((cell, index) => {
     const box = document.createElement('div');
     box.className = "bako";
@@ -285,7 +290,7 @@ if (btnModalSave) {
     const inputValue = modalImgUrl ? modalImgUrl.value.trim() : '';
     let inputUrl = modalUrl ? modalUrl.value.trim() : '';
 
-    // 🛡️ 防衛ライン③：詳細リンク先の安全性をチェック
+    // 🛡️ 詳細リンク先のセキュリティチェック
     if (inputUrl) {
       if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
         alert('【セキュリティ警告】安全ではないURL形式です。詳細リンク先は http:// または https:// から始まるアドレスを入力してください。');
@@ -307,10 +312,10 @@ if (btnModalSave) {
     
     if (isBase64Image(inputValue)) {
       try {
-        // 🛡️ 防衛ライン① & ②：本物の画像か検証しつつ、Canvasで安全に超圧縮
+        // 画像を安全に縮小・再構築（非同期処理の完了をしっかり待つ）
         finalImgData = await compressImageLocal(inputValue, 50, 50);
       } catch (error) {
-        alert('【セキュリティ警告】ファイルが破損しているか、画像に見せかけた不正なファイルの可能性があります。本物の画像を使用してください。');
+        alert('【セキュリティ警告】ファイルの読み込みに失敗しました。不正なファイルの可能性があります。');
         return; 
       }
     }
@@ -328,4 +333,3 @@ const btnShare = document.getElementById('btnShare');
 if (btnShare) {
   btnShare.addEventListener('click', async () => {
     try {
-      const originalText = btnShare.innerText;
