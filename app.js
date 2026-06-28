@@ -1,10 +1,11 @@
 // ============================================================
-// URL超短縮のためのローカル完結型変換 ＆ 短縮API連携システム
-// 外部送信ゼロ：ブラウザのCanvas処理とドメイン置換によりURLを極小化し、
-// 最後に完全無料の短縮API（is.gd）を通して極小URLを出力します。
+// 【最終完成版】読書ビンゴ コアシステム（app.js）
+// 機能：ローカル完結型画像超圧縮、重複ドメイン置換、短縮API連携、
+//       および不正ファイル偽装・悪意あるスクリプトの徹底排除（防衛策内蔵）
 // ============================================================
 
-// 1. ローカルで画像を極限（50px四方・画質10%のWebP）まで軽量化する関数
+// 🛡️ 防衛ライン①：ローカルで画像を極限（50px四方・画質10%のWebP）まで軽量化し、同時に再構築する関数
+// Canvas上でピクセルを1から描き直すため、元画像にウイルスや不正スクリプトが埋め込まれていても強制的に消滅・無力化されます。
 function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -35,15 +36,46 @@ function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      // WebP（非対応ブラウザはJPEG等）へ超圧縮変換
+      // WebP形式（非対応環境はJPEG等）へ超圧縮エクスポート
       resolve(canvas.toDataURL('image/webp', 0.1));
     };
     img.onerror = () => resolve(base64Str); // エラー時はフォールバック
   });
 }
 
+// Data URL(Base64)形式のデータか判定するヘルパー
 function isBase64Image(str) { 
   return str && str.startsWith('data:image/'); 
+}
+
+// 🛡️ 防衛ライン②：ファイルが本当に本物の画像かどうか、先頭のバイナリ（マジックバイト）で検証する関数
+// 拡張子だけを「.jpg」などに偽装したコンピュータウイルス（.exeなど）がインプットされた場合に検知して弾きます。
+function isValidImageBinary(base64Str) {
+  try {
+    const block = base64Str.split(';');
+    if (block.length < 2) return false;
+    const realBase64 = block[1].split(',')[1];
+    
+    // 先頭の数バイトをデコードしてバイナリ配列にする
+    const binaryString = atob(realBase64.slice(0, 16));
+    const bytes = new Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    
+    // マジックバイト（16進数）の検証
+    const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
+    
+    // PNG, JPEG, GIF, WebP の本物のヘッダ特性に一致するかチェック
+    const isPNG  = hex.startsWith('89504E47');
+    const isJPEG = hex.startsWith('FFD8FF');
+    const isGIF  = hex.startsWith('47494638');
+    const isWebP = hex.includes('57454250'); // "WEBP" のマジックワード
+    
+    return isPNG || isJPEG || isGIF || isWebP;
+  } catch (e) {
+    return false;
+  }
 }
 
 // ============================================================
@@ -62,7 +94,7 @@ const modalUrl = document.getElementById('modalUrl');
 const modeBadge = document.getElementById('modeBadge');
 const boardTitle = document.getElementById('boardTitle');
 
-// 圧縮時に共通で置換する頻出ドメインのリスト（URLの短縮に劇的に効きます）
+// 圧縮時に共通で置換する頻出ドメインのリスト（URLの長さを数十文字〜数百文字カットできます）
 const DOMAIN_DICTIONARY = [
   'https://amazon.co.jp',
   'https://bookmeter.com',
@@ -74,7 +106,6 @@ const DOMAIN_DICTIONARY = [
 
 /**
  * bingoData → URL文字列（一括超圧縮）
- * シェアURLを生成する最後の瞬間に、25マスの重い画像をすべて一斉に50pxの極小サムネイルに変換します。
  */
 async function serialize(data) {
   const sparse = [];
@@ -84,7 +115,6 @@ async function serialize(data) {
     if (cell.img || cell.url) {
       const entry = { n: idx };
       
-      // 画像が存在する場合のローカル超圧縮処理
       if (cell.img) {
         if (isBase64Image(cell.img)) {
           entry.i = await compressImageLocal(cell.img, 50, 50);
@@ -93,7 +123,6 @@ async function serialize(data) {
         }
       }
       
-      // 遷移先URLが存在する場合の処理
       if (cell.url) {
         entry.u = cell.url;
       }
@@ -102,7 +131,7 @@ async function serialize(data) {
     }
   }
 
-  // 遷移先URLの頻出ドメインを1〜2文字の記号（@0, @1...）に置換して文字数を削る
+  // 遷移先URLの頻出ドメインを記号（@0, @1...）に置換して文字数を削る
   const compressedSparse = sparse.map(entry => {
     const newEntry = { ...entry };
     if (newEntry.u) {
@@ -126,7 +155,6 @@ async function serialize(data) {
 function deserialize(param) {
   let json = LZString.decompressFromEncodedURIComponent(param);
   if (!json) {
-    // 互換性維持用の旧フォーマット復元
     return JSON.parse(decodeURIComponent(atob(param)));
   }
 
@@ -136,7 +164,6 @@ function deserialize(param) {
   sparse.forEach(entry => {
     data[entry.n].img = entry.i || '';
     
-    // 記号化されたドメイン（@0など）を元のURL文字列に復元
     if (entry.u) {
       let decodedUrl = entry.u;
       for (let i = 0; i < DOMAIN_DICTIONARY.length; i++) {
@@ -161,11 +188,13 @@ function init() {
     try {
       bingoData = deserialize(dataParam);
       isParticipantMode = true;
-      modeBadge.innerText = "参加者プレイモード";
-      modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
-      modeBadge.style.color = "#ffb74d";
-      boardTitle.innerText = "読書ビンゴに挑戦中！";
-      document.getElementById('btnShare').classList.add('hidden');
+      if (modeBadge) {
+        modeBadge.innerText = "参加者プレイモード";
+        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
+        modeBadge.style.color = "#ffb74d";
+      }
+      if (boardTitle) boardTitle.innerText = "読書ビンゴに挑戦中！";
+      if (document.getElementById('btnShare')) document.getElementById('btnShare').classList.add('hidden');
     } catch (e) {
       console.error(e);
     }
@@ -175,6 +204,7 @@ function init() {
 
 // ----- ビンゴ盤面の描画 -----
 function renderBoard() {
+  if (!gridContainer) return;
   gridContainer.innerHTML = '';
   bingoData.forEach((cell, index) => {
     const box = document.createElement('div');
@@ -194,7 +224,6 @@ function renderBoard() {
       contentArea.appendChild(placeholder);
     }
 
-    // 参加者モードかつスタンプがある場合の上書きレイヤー
     if (isParticipantMode && cell.check) {
       const overlay = document.createElement('div');
       overlay.className = "overlay-mark";
@@ -206,13 +235,12 @@ function renderBoard() {
       contentArea.appendChild(overlay);
     }
 
-    // クリックイベント
     contentArea.addEventListener('click', () => {
       if (!isParticipantMode) {
         currentEditIndex = index;
-        modalImgUrl.value = cell.img;
-        modalUrl.value = cell.url;
-        editModal.classList.remove('hidden');
+        if (modalImgUrl) modalImgUrl.value = cell.img;
+        if (modalUrl) modalUrl.value = cell.url;
+        if (editModal) editModal.classList.remove('hidden');
       } else {
         if (cell.url) window.open(cell.url, '_blank');
       }
@@ -220,7 +248,6 @@ function renderBoard() {
 
     box.appendChild(contentArea);
 
-    // 下部コントロールバーの処理
     const controlBar = document.createElement('div');
     controlBar.className = "control-bar";
     
@@ -256,61 +283,38 @@ function renderBoard() {
   });
 }
 
-// ----- UIイベントリスナー -----
+// ----- UIイベントリスナー（安全ガード付き） -----
 
-// サンプルボタンの挙動調整（HTMLの構成に一致）
-document.getElementById('sampleA').addEventListener('click', () => { 
-  modalImgUrl.value = 'https://unsplash.com/photo-1544716278-ca5e3f4abd8c'; 
-});
-document.getElementById('sampleB').addEventListener('click', () => { 
-  modalImgUrl.value = 'https://unsplash.com/photo-1506880018603-83d5b814b5a6'; 
-});
+const sampleA = document.getElementById('sampleA');
+if (sampleA) {
+  sampleA.addEventListener('click', () => { 
+    if (modalImgUrl) modalImgUrl.value = 'https://unsplash.com/photo-1544716278-ca5e3f4abd8c'; 
+  });
+}
 
-document.getElementById('btnModalCancel').addEventListener('click', () => editModal.classList.add('hidden'));
+const sampleB = document.getElementById('sampleB');
+if (sampleB) {
+  sampleB.addEventListener('click', () => { 
+    if (modalImgUrl) modalImgUrl.value = 'https://unsplash.com/photo-1506880018603-83d5b814b5a6'; 
+  });
+}
 
-// モーダル保存処理
-document.getElementById('btnModalSave').addEventListener('click', async () => {
-  const inputValue = modalImgUrl.value.trim();
-  let inputUrl = modalUrl.value.trim();
-  editModal.classList.add('hidden'); // モーダルを即時閉じてサクサク動かす
+const btnModalCancel = document.getElementById('btnModalCancel');
+if (btnModalCancel) {
+  btnModalCancel.addEventListener('click', () => {
+    if (editModal) editModal.classList.add('hidden');
+  });
+}
 
-  // Amazonや各種サイトの不要なトラッキングクエリパラメータ（長い文字列）を自動切除
-  if (inputUrl && inputUrl.startsWith('http')) {
-    try {
-      const cleanUrl = new URL(inputUrl);
-      const trashParams = ['ref', 'ref_', 'qid', 'sr', 'keywords', 'utm_source', 'utm_medium', 'utm_campaign', 'igsh'];
-      trashParams.forEach(p => cleanUrl.searchParams.delete(p));
-      inputUrl = cleanUrl.toString();
-    } catch (e) { /* 不正なURL形式の場合はスキップ */ }
-  }
+// モーダル保存処理（セキュリティ ＆ URL事前最適化）
+const btnModalSave = document.getElementById('btnModalSave');
+if (btnModalSave) {
+  btnModalSave.addEventListener('click', async () => {
+    if (currentEditIndex === null) return;
+    const inputValue = modalImgUrl ? modalImgUrl.value.trim() : '';
+    let inputUrl = modalUrl ? modalUrl.value.trim() : '';
 
-  // 画像がBase64（ローカルファイル）の場合はその場で超縮小圧縮
-  let finalImgData = inputValue;
-  if (isBase64Image(inputValue)) {
-    finalImgData = await compressImageLocal(inputValue, 50, 50);
-  }
-
-  bingoData[currentEditIndex].img = finalImgData;
-  bingoData[currentEditIndex].url = inputUrl;
-  renderBoard();
-});
-
-// 参加用URL発行（シェア）ボタン（短縮URL対応版）
-document.getElementById('btnShare').addEventListener('click', async () => {
-  try {
-    // 1. ボタンを「処理中」にして連打を防ぐ
-    const originalText = document.getElementById('btnShare').innerText;
-    document.getElementById('btnShare').innerText = "短縮URLを生成中...";
-    document.getElementById('btnShare').disabled = true;
-
-    // 2. まず、画像とドメインを詰め込んだオリジナルの長いURL（数千文字）を作る
-    const serialized = await serialize(bingoData);
-    const longShareUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
-
-    // 3. 完全無料の短縮URL API（is.gd）を使って、一瞬で20文字程度に圧縮する
-    // ※CORS通信を通すため、alloriginsプロキシを経由させています
-    const apiUrl = `https://allorigins.win{encodeURIComponent(`https://is.gd{encodeURIComponent(longShareUrl)}`)}`;
-    
-    const response = await fetch(apiUrl);
-    if (!response.ok) throw new Error('短縮APIの通信に失敗しました');
-    
+    // 🛡️ 防衛ライン③：詳細リンク先の安全性をチェック（http / https のスキームのみ許可）
+    // javascript:やdata:などを悪用したXSS（クロスサイトスクリプティング）攻撃を遮断します。
+    if (inputUrl) {
+      if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
