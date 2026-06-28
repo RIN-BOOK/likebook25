@@ -1,9 +1,8 @@
 // ============================================================
-// 【完全修正版】おすすめ読書ビンゴ コアシステム（app.js）
+// 【完全確定版】おすすめ読書ビンゴ コアシステム（app.js）
 // ============================================================
 
 // 1. ローカルで画像を極限（50px四方・低画質）まで軽量化する関数
-// 完全に同期を保証するプロキシオブジェクトとPromiseの設計に修正しました。
 function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -33,11 +32,10 @@ function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      // 安全なWebP、またはJPEG形式で出力
       resolve(canvas.toDataURL('image/jpeg', 0.2));
     };
     img.onerror = () => {
-      resolve(''); // 破損ファイルやウイルス等は空文字にして安全に排除
+      resolve(''); // 不正なファイルやウイルスコードは空にして完全無力化
     };
   });
 }
@@ -47,9 +45,8 @@ function isBase64Image(str) {
 }
 
 // ============================================================
-// コアロジック（データ管理・一括圧縮・解凍）
+// コアデータと状態管理
 // ============================================================
-
 let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
 let isParticipantMode = false;
 let currentEditIndex = null;
@@ -84,7 +81,6 @@ async function serialize(data) {
       
       if (cell.img) {
         if (isBase64Image(cell.img)) {
-          // await で確実に画像の圧縮完了を待機します
           entry.i = await compressImageLocal(cell.img, 50, 50);
         } else {
           entry.i = cell.img;
@@ -120,15 +116,12 @@ async function serialize(data) {
  * URL文字列 → bingoData（復元）
  */
 function deserialize(param) {
-  // まずLZStringでの解凍を試みる
   let json = LZString.decompressFromEncodedURIComponent(param);
   
-  // もし解凍できなかった場合は旧フォーマット（btoa形式）としてフォールバック
   if (!json) {
     try {
       return JSON.parse(decodeURIComponent(atob(param)));
     } catch(e) {
-      // それでもダメなら初期盤面を返す（クラッシュ防止）
       return Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
     }
   }
@@ -155,29 +148,7 @@ function deserialize(param) {
   return data;
 }
 
-// ----- 初期化 -----
-function init() {
-  const params = new URLSearchParams(window.location.search);
-  const dataParam = params.get('data');
-  if (dataParam) {
-    try {
-      bingoData = deserialize(dataParam);
-      isParticipantMode = true;
-      if (modeBadge) {
-        modeBadge.innerText = "参加者プレイモード";
-        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
-        modeBadge.style.color = "#ffb74d";
-      }
-      if (boardTitle) boardTitle.innerText = "読書ビンゴに挑戦中！";
-      if (document.getElementById('btnShare')) document.getElementById('btnShare').classList.add('hidden');
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  renderBoard(); // 確実に最後に描画を叩く
-}
-
-// ----- ビンゴ盤面の描画 -----
+// ----- ビンゴ盤面の描画（最重要：同期処理） -----
 function renderBoard() {
   if (!gridContainer) return;
   gridContainer.innerHTML = '';
@@ -290,7 +261,7 @@ if (btnModalSave) {
     const inputValue = modalImgUrl ? modalImgUrl.value.trim() : '';
     let inputUrl = modalUrl ? modalUrl.value.trim() : '';
 
-    // 🛡️ 詳細リンク先のセキュリティチェック
+    // 🛡️ リンク先のセキュリティチェック
     if (inputUrl) {
       if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
         alert('【セキュリティ警告】安全ではないURL形式です。詳細リンク先は http:// または https:// から始まるアドレスを入力してください。');
@@ -298,7 +269,7 @@ if (btnModalSave) {
       }
     }
 
-    // Amazon等の不要なクエリパラメータを切除
+    // クエリパラメータの切除
     if (inputUrl && inputUrl.startsWith('http')) {
       try {
         const cleanUrl = new URL(inputUrl);
@@ -312,10 +283,9 @@ if (btnModalSave) {
     
     if (isBase64Image(inputValue)) {
       try {
-        // 画像を安全に縮小・再構築（非同期処理の完了をしっかり待つ）
         finalImgData = await compressImageLocal(inputValue, 50, 50);
       } catch (error) {
-        alert('【セキュリティ警告】ファイルの読み込みに失敗しました。不正なファイルの可能性があります。');
+        alert('【セキュリティ警告】ファイルの読み込みに失敗しました。');
         return; 
       }
     }
@@ -333,3 +303,29 @@ const btnShare = document.getElementById('btnShare');
 if (btnShare) {
   btnShare.addEventListener('click', async () => {
     try {
+      const originalText = btnShare.innerText;
+      btnShare.innerText = "短縮URLを生成中...";
+      btnShare.disabled = true;
+
+      const serialized = await serialize(bingoData);
+      const longShareUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
+
+      // 短縮API（is.gd）
+      const apiUrl = `https://allorigins.win{encodeURIComponent(`https://is.gd{encodeURIComponent(longShareUrl)}`)}`;
+      
+      const response = await fetch(apiUrl);
+      if (!response.ok) throw new Error('短縮APIの通信に失敗しました');
+      
+      const proxyData = await response.json();
+      const resultData = JSON.parse(proxyData.contents);
+      
+      let finalUrl = longShareUrl;
+
+      if (resultData && resultData.shorturl) {
+        finalUrl = resultData.shorturl;
+      }
+
+      btnShare.innerText = originalText;
+      btnShare.disabled = false;
+
+      navigator.clipboard.writeText(finalUrl).then(() => {
