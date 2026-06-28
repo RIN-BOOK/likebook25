@@ -1,3 +1,9 @@
+// ============================================================
+// URL短縮のための変換テーブル
+//   内部データ: { img, url, check }
+//   URL送信形式: { i, u, c } ＋ 空マスは省略
+// ============================================================
+
 let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
 let isParticipantMode = false;
 let currentEditIndex = null;
@@ -9,31 +15,73 @@ const modalUrl = document.getElementById('modalUrl');
 const modeBadge = document.getElementById('modeBadge');
 const boardTitle = document.getElementById('boardTitle');
 
+// ----- シリアライズ / デシリアライズ -----
+
+/**
+ * bingoData → URL文字列
+ * 工夫①: キーを短縮 (img→i, url→u, check→c)
+ * 工夫②: 空マスは省略し {index, ...} 形式でスパース送信
+ * 工夫③: lz-string で圧縮 → URLセーフBase64
+ */
+function serialize(data) {
+  const sparse = data.reduce((acc, cell, idx) => {
+    if (cell.img || cell.url) {
+      const entry = { n: idx };
+      if (cell.img)   entry.i = cell.img;
+      if (cell.url)   entry.u = cell.url;
+      // check は参加者側のローカル状態なので共有URLには含めない
+      acc.push(entry);
+    }
+    return acc;
+  }, []);
+  const json = JSON.stringify(sparse);
+  return LZString.compressToEncodedURIComponent(json);
+}
+
+/**
+ * URL文字列 → bingoData
+ * 旧フォーマット（btoa+encodeURIComponent）にも対応
+ */
+function deserialize(param) {
+  // まず lz-string で解凍を試みる
+  let json = LZString.decompressFromEncodedURIComponent(param);
+
+  if (json) {
+    const sparse = JSON.parse(json);
+    const data = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
+    sparse.forEach(entry => {
+      data[entry.n].img = entry.i || '';
+      data[entry.n].url = entry.u || '';
+    });
+    return data;
+  }
+
+  // フォールバック: 旧フォーマット (btoa + encodeURIComponent)
+  return JSON.parse(decodeURIComponent(atob(param)));
+}
+
+// ----- 初期化 -----
+
 function init() {
   const params = new URLSearchParams(window.location.search);
-  const dataParam = params.get('p'); // 短縮化に伴いパラメータ名を「p」に統一
-  const oldParam = params.get('data'); // 以前の形式も受け取れるよう互換性を保持
-  const targetParam = dataParam || oldParam;
-
-  if (targetParam) {
+  const dataParam = params.get('data');
+  if (dataParam) {
     try {
-      // LZ-Stringで圧縮されたデータを安全に解凍・復元
-      const decompressed = LZString.decompressFromEncodedURIComponent(targetParam);
-      if (decompressed) {
-        bingoData = JSON.parse(decompressed);
-        isParticipantMode = true;
-        modeBadge.innerText = "参加者プレイモード";
-        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
-        modeBadge.style.color = "#ffb74d";
-        boardTitle.innerText = "読書ビンゴに挑戦中！";
-        document.getElementById('btnShare').classList.add('hidden');
-      }
+      bingoData = deserialize(dataParam);
+      isParticipantMode = true;
+      modeBadge.innerText = "参加者プレイモード";
+      modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
+      modeBadge.style.color = "#ffb74d";
+      boardTitle.innerText = "読書ビンゴに挑戦中！";
+      document.getElementById('btnShare').classList.add('hidden');
     } catch (e) {
-      console.error("データの読み込みに失敗しました：", e);
+      console.error(e);
     }
   }
   renderBoard();
 }
+
+// ----- 描画 -----
 
 function renderBoard() {
   gridContainer.innerHTML = '';
@@ -114,6 +162,8 @@ function renderBoard() {
   });
 }
 
+// ----- イベント -----
+
 document.getElementById('sampleA').addEventListener('click', () => { modalImgUrl.value = 'https://unsplash.com'; });
 document.getElementById('sampleB').addEventListener('click', () => { modalImgUrl.value = 'https://unsplash.com'; });
 document.getElementById('btnModalCancel').addEventListener('click', () => editModal.classList.add('hidden'));
@@ -125,55 +175,32 @@ document.getElementById('btnModalSave').addEventListener('click', () => {
   editModal.classList.add('hidden');
 });
 
-// ★匿名自動URL超短縮機能の組み込み
 document.getElementById('btnShare').addEventListener('click', () => {
-  const shareBtn = document.getElementById('btnShare');
-  shareBtn.innerText = "⏳ リンクを短縮中...";
-  shareBtn.disabled = true;
-
   try {
-    const rawString = JSON.stringify(bingoData);
-    const compressed = LZString.compressToEncodedURIComponent(rawString);
-    const longUrl = window.location.origin + window.location.pathname + '?p=' + compressed;
-    
-    // 会員登録不要の「is.gd」短縮APIへ裏側で非同期通信を実行！
-    fetch(`https://is.gd{encodeURIComponent(longUrl)}`)
-    .then(res => res.json())
-    .then(data => {
-      // 成功したら短縮URL、失敗したら元の長いURLをフォールバック
-      let finalUrl = data.shorturl || longUrl;
-      
-      // クリップボードへ確実にコピー（最古のブラウザから最新スマホまで対応する古典的確実命令）
-      const tempTextArea = document.createElement('textarea');
-      tempTextArea.value = finalUrl;
-      document.body.appendChild(tempTextArea);
-      tempTextArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(tempTextArea);
-      
-      alert("【大成功】誰にでも送れる超短縮URLを発行しました！\n\nクリップボードにコピーしたため、このままSNSやLINEに貼り付けられます：\n" + finalUrl);
-    })
-    .catch(err => {
-      console.error(err);
-      // 通信エラーが起きた場合は通常の長いURLをコピー
-      const tempTextArea = document.createElement('textarea');
-      tempTextArea.value = longUrl;
-      document.body.appendChild(tempTextArea);
-      tempTextArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(tempTextArea);
-      alert("URLの短縮通信に失敗したため、通常の共有リンクをコピーしました。このままでも共有は可能です。");
-    })
-    .finally(() => {
-      shareBtn.innerText = "参加用URLを発行";
-      shareBtn.disabled = false;
+    const serialized = serialize(bingoData);
+    const shareUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      alert("【大成功】読書ビンゴのURLをコピーしました！\n\nこのURLを別のタブやスマホに送れば、この配置のまま参加者として遊んでもらえます！");
+    }).catch(() => {
+      prompt("URLをコピーしてください：", shareUrl);
     });
-  } catch (error) {
-    alert("エラーが発生しました。");
-    shareBtn.innerText = "参加用URLを発行";
-    shareBtn.disabled = false;
+  } catch (e) {
+    alert("エラーが発生しました。データが大きすぎる可能性があります。");
+  }
+});
+
+document.getElementById('btnReset').addEventListener('click', () => {
+  if (confirm("ビンゴボードをリセットしますか？")) {
+    bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
+    window.history.pushState({}, document.title, window.location.pathname);
+    isParticipantMode = false;
+    modeBadge.innerText = "制作者モード";
+    modeBadge.style.background = "rgba(99, 102, 241, 0.2)";
+    modeBadge.style.color = "#a5b4fc";
+    boardTitle.innerText = "MY BOOK BINGO";
+    document.getElementById('btnShare').classList.remove('hidden');
+    renderBoard();
   }
 });
 
 init();
-
