@@ -1,10 +1,12 @@
 // ============================================================
-// 【完全修正版】読書ビンゴ コアシステム（app.js）
+// 【バグ修正完了版】読書ビンゴ コアシステム（app.js）
 // ============================================================
 
-// 1. ローカルで画像を極限（50px四方・画質10%のWebP）まで軽量化・クレンジングする関数
+// 🛡️ 防衛ライン① & ②：画像を安全に縮小し、かつ不正スクリプトを完全除去する関数
+// Canvas上でピクセルを1から描き直すため、元画像にウイルスが埋め込まれていても物理的に消滅します。
+// 読み込みに失敗する不正ファイル（中身がウイルスexe等）は、この時点で安全に検知されます。
 function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const img = new Image();
     img.src = base64Str;
     img.onload = () => {
@@ -34,7 +36,10 @@ function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
 
       resolve(canvas.toDataURL('image/webp', 0.1));
     };
-    img.onerror = () => resolve(base64Str);
+    img.onerror = () => {
+      // 読み込み失敗＝画像に見せかけた不正ファイル、または破損データ
+      reject(new Error('Invalid image'));
+    };
   });
 }
 
@@ -42,41 +47,15 @@ function isBase64Image(str) {
   return str && str.startsWith('data:image/'); 
 }
 
-// 本物の画像ファイルかどうかをバイナリ構造でチェックする（ファイル偽装ウイルス対策）
-function isValidImageBinary(base64Str) {
-  try {
-    const block = base64Str.split(';');
-    if (block.length < 2) return false;
-    const realBase64 = block[1].split(',')[1];
-    
-    const binaryString = atob(realBase64.slice(0, 16));
-    const bytes = new Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
-    
-    const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
-    
-    const isPNG  = hex.startsWith('89504E47');
-    const isJPEG = hex.startsWith('FFD8FF');
-    const isGIF  = hex.startsWith('47494638');
-    const isWebP = hex.includes('57454250');
-    
-    return isPNG || isJPEG || isGIF || isWebP;
-  } catch (e) {
-    return false;
-  }
-}
-
 // ============================================================
-// データ・状態管理
+// コアロジック（データ管理・圧縮・解凍）
 // ============================================================
 
 let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
 let isParticipantMode = false;
 let currentEditIndex = null;
 
-// HTML要素のキャッシュ
+// HTML要素のバインディング
 const gridContainer = document.getElementById('gridContainer');
 const editModal = document.getElementById('editModal');
 const modalImgUrl = document.getElementById('modalImgUrl');
@@ -84,7 +63,6 @@ const modalUrl = document.getElementById('modalUrl');
 const modeBadge = document.getElementById('modeBadge');
 const boardTitle = document.getElementById('boardTitle');
 
-// 圧縮用ドメイン辞書
 const DOMAIN_DICTIONARY = [
   'https://amazon.co.jp',
   'https://bookmeter.com',
@@ -107,7 +85,11 @@ async function serialize(data) {
       
       if (cell.img) {
         if (isBase64Image(cell.img)) {
-          entry.i = await compressImageLocal(cell.img, 50, 50);
+          try {
+            entry.i = await compressImageLocal(cell.img, 50, 50);
+          } catch(e) {
+            entry.i = ''; // 不正な画像は除外
+          }
         } else {
           entry.i = cell.img;
         }
@@ -169,11 +151,32 @@ function deserialize(param) {
   return data;
 }
 
-// ----- ビンゴ盤面の描画（エラー回避ガード強化） -----
+// ----- 初期化 -----
+function init() {
+  const params = new URLSearchParams(window.location.search);
+  const dataParam = params.get('data');
+  if (dataParam) {
+    try {
+      bingoData = deserialize(dataParam);
+      isParticipantMode = true;
+      if (modeBadge) {
+        modeBadge.innerText = "参加者プレイモード";
+        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
+        modeBadge.style.color = "#ffb74d";
+      }
+      if (boardTitle) boardTitle.innerText = "読書ビンゴに挑戦中！";
+      if (document.getElementById('btnShare')) document.getElementById('btnShare').classList.add('hidden');
+    } catch (e) {
+      console.error(e);
+    }
+  }
+  renderBoard();
+}
+
+// ----- ビンゴ盤面の描画 -----
 function renderBoard() {
   if (!gridContainer) return;
   gridContainer.innerHTML = '';
-  
   bingoData.forEach((cell, index) => {
     const box = document.createElement('div');
     box.className = "bako";
@@ -251,41 +254,7 @@ function renderBoard() {
   });
 }
 
-// ----- 初期化（バグを修正し、盤面表示を最優先に） -----
-function init() {
-  // 1. 何はともあれ、まず最初に空の盤面を描画する（これで絶対に消えません）
-  renderBoard();
-
-  // 2. その後、URLパラメータを安全にチェックしてモードを切り替える
-  const params = new URLSearchParams(window.location.search);
-  const dataParam = params.get('data');
-  if (dataParam) {
-    try {
-      bingoData = deserialize(dataParam);
-      isParticipantMode = true;
-      
-      // UI表示の切り替え（要素の存在チェック付き）
-      if (modeBadge) {
-        modeBadge.innerText = "参加者プレイモード";
-        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
-        modeBadge.style.color = "#ffb74d";
-      }
-      if (boardTitle) boardTitle.innerText = "読書ビンゴに挑戦中！";
-      
-      const btnShare = document.getElementById('btnShare');
-      if (btnShare) btnShare.classList.add('hidden');
-      
-      // データが復元されたので、もう一度再描画する
-      renderBoard();
-    } catch (e) {
-      console.error("データ復元エラー:", e);
-    }
-  }
-}
-
-// ============================================================
-// UIイベントリスナー（安全ガード付き）
-// ============================================================
+// ----- UIイベントリスナー -----
 
 const sampleA = document.getElementById('sampleA');
 if (sampleA) {
@@ -308,7 +277,7 @@ if (btnModalCancel) {
   });
 }
 
-// モーダル保存
+// モーダル保存処理
 const btnModalSave = document.getElementById('btnModalSave');
 if (btnModalSave) {
   btnModalSave.addEventListener('click', async () => {
@@ -316,15 +285,47 @@ if (btnModalSave) {
     const inputValue = modalImgUrl ? modalImgUrl.value.trim() : '';
     let inputUrl = modalUrl ? modalUrl.value.trim() : '';
 
+    // 🛡️ 防衛ライン③：詳細リンク先の安全性をチェック
     if (inputUrl) {
       if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
-        alert('【セキュリティ警告】詳細リンク先は http:// または https:// から始まるアドレスを入力してください。');
+        alert('【セキュリティ警告】安全ではないURL形式です。詳細リンク先は http:// または https:// から始まるアドレスを入力してください。');
         return; 
       }
     }
 
+    // Amazon等の不要なクエリパラメータを切除
     if (inputUrl && inputUrl.startsWith('http')) {
       try {
         const cleanUrl = new URL(inputUrl);
         const trashParams = ['ref', 'ref_', 'qid', 'sr', 'keywords', 'utm_source', 'utm_medium', 'utm_campaign', 'igsh'];
         trashParams.forEach(p => cleanUrl.searchParams.delete(p));
+        inputUrl = cleanUrl.toString();
+      } catch (e) {}
+    }
+
+    let finalImgData = inputValue;
+    
+    if (isBase64Image(inputValue)) {
+      try {
+        // 🛡️ 防衛ライン① & ②：本物の画像か検証しつつ、Canvasで安全に超圧縮
+        finalImgData = await compressImageLocal(inputValue, 50, 50);
+      } catch (error) {
+        alert('【セキュリティ警告】ファイルが破損しているか、画像に見せかけた不正なファイルの可能性があります。本物の画像を使用してください。');
+        return; 
+      }
+    }
+
+    bingoData[currentEditIndex].img = finalImgData;
+    bingoData[currentEditIndex].url = inputUrl;
+    
+    if (editModal) editModal.classList.add('hidden');
+    renderBoard();
+  });
+}
+
+// 参加用URL発行（シェア）ボタン
+const btnShare = document.getElementById('btnShare');
+if (btnShare) {
+  btnShare.addEventListener('click', async () => {
+    try {
+      const originalText = btnShare.innerText;
