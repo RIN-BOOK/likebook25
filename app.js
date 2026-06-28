@@ -1,11 +1,8 @@
 // ============================================================
-// 【最終完成版】読書ビンゴ コアシステム（app.js）
-// 機能：ローカル完結型画像超圧縮、重複ドメイン置換、短縮API連携、
-//       および不正ファイル偽装・悪意あるスクリプトの徹底排除（防衛策内蔵）
+// 【完全修正版】読書ビンゴ コアシステム（app.js）
 // ============================================================
 
-// 🛡️ 防衛ライン①：ローカルで画像を極限（50px四方・画質10%のWebP）まで軽量化し、同時に再構築する関数
-// Canvas上でピクセルを1から描き直すため、元画像にウイルスや不正スクリプトが埋め込まれていても強制的に消滅・無力化されます。
+// 1. ローカルで画像を極限（50px四方・画質10%のWebP）まで軽量化・クレンジングする関数
 function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
   return new Promise((resolve) => {
     const img = new Image();
@@ -15,7 +12,6 @@ function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
       let width = img.width;
       let height = img.height;
 
-      // アスペクト比を維持して縮小
       if (width > height) {
         if (width > maxWidth) {
           height = Math.round((height * maxWidth) / width);
@@ -36,41 +32,35 @@ function compressImageLocal(base64Str, maxWidth = 50, maxHeight = 50) {
       ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(img, 0, 0, width, height);
 
-      // WebP形式（非対応環境はJPEG等）へ超圧縮エクスポート
       resolve(canvas.toDataURL('image/webp', 0.1));
     };
-    img.onerror = () => resolve(base64Str); // エラー時はフォールバック
+    img.onerror = () => resolve(base64Str);
   });
 }
 
-// Data URL(Base64)形式のデータか判定するヘルパー
 function isBase64Image(str) { 
   return str && str.startsWith('data:image/'); 
 }
 
-// 🛡️ 防衛ライン②：ファイルが本当に本物の画像かどうか、先頭のバイナリ（マジックバイト）で検証する関数
-// 拡張子だけを「.jpg」などに偽装したコンピュータウイルス（.exeなど）がインプットされた場合に検知して弾きます。
+// 本物の画像ファイルかどうかをバイナリ構造でチェックする（ファイル偽装ウイルス対策）
 function isValidImageBinary(base64Str) {
   try {
     const block = base64Str.split(';');
     if (block.length < 2) return false;
     const realBase64 = block[1].split(',')[1];
     
-    // 先頭の数バイトをデコードしてバイナリ配列にする
     const binaryString = atob(realBase64.slice(0, 16));
     const bytes = new Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // マジックバイト（16進数）の検証
     const hex = bytes.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase();
     
-    // PNG, JPEG, GIF, WebP の本物のヘッダ特性に一致するかチェック
     const isPNG  = hex.startsWith('89504E47');
     const isJPEG = hex.startsWith('FFD8FF');
     const isGIF  = hex.startsWith('47494638');
-    const isWebP = hex.includes('57454250'); // "WEBP" のマジックワード
+    const isWebP = hex.includes('57454250');
     
     return isPNG || isJPEG || isGIF || isWebP;
   } catch (e) {
@@ -79,14 +69,14 @@ function isValidImageBinary(base64Str) {
 }
 
 // ============================================================
-// コアロジック（データ管理・圧縮・解凍）
+// データ・状態管理
 // ============================================================
 
 let bingoData = Array.from({ length: 25 }, () => ({ img: '', url: '', check: '' }));
 let isParticipantMode = false;
 let currentEditIndex = null;
 
-// HTML要素のバインディング
+// HTML要素のキャッシュ
 const gridContainer = document.getElementById('gridContainer');
 const editModal = document.getElementById('editModal');
 const modalImgUrl = document.getElementById('modalImgUrl');
@@ -94,7 +84,7 @@ const modalUrl = document.getElementById('modalUrl');
 const modeBadge = document.getElementById('modeBadge');
 const boardTitle = document.getElementById('boardTitle');
 
-// 圧縮時に共通で置換する頻出ドメインのリスト（URLの長さを数十文字〜数百文字カットできます）
+// 圧縮用ドメイン辞書
 const DOMAIN_DICTIONARY = [
   'https://amazon.co.jp',
   'https://bookmeter.com',
@@ -131,7 +121,6 @@ async function serialize(data) {
     }
   }
 
-  // 遷移先URLの頻出ドメインを記号（@0, @1...）に置換して文字数を削る
   const compressedSparse = sparse.map(entry => {
     const newEntry = { ...entry };
     if (newEntry.u) {
@@ -180,32 +169,11 @@ function deserialize(param) {
   return data;
 }
 
-// ----- 初期化 -----
-function init() {
-  const params = new URLSearchParams(window.location.search);
-  const dataParam = params.get('data');
-  if (dataParam) {
-    try {
-      bingoData = deserialize(dataParam);
-      isParticipantMode = true;
-      if (modeBadge) {
-        modeBadge.innerText = "参加者プレイモード";
-        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
-        modeBadge.style.color = "#ffb74d";
-      }
-      if (boardTitle) boardTitle.innerText = "読書ビンゴに挑戦中！";
-      if (document.getElementById('btnShare')) document.getElementById('btnShare').classList.add('hidden');
-    } catch (e) {
-      console.error(e);
-    }
-  }
-  renderBoard();
-}
-
-// ----- ビンゴ盤面の描画 -----
+// ----- ビンゴ盤面の描画（エラー回避ガード強化） -----
 function renderBoard() {
   if (!gridContainer) return;
   gridContainer.innerHTML = '';
+  
   bingoData.forEach((cell, index) => {
     const box = document.createElement('div');
     box.className = "bako";
@@ -283,7 +251,41 @@ function renderBoard() {
   });
 }
 
-// ----- UIイベントリスナー（安全ガード付き） -----
+// ----- 初期化（バグを修正し、盤面表示を最優先に） -----
+function init() {
+  // 1. 何はともあれ、まず最初に空の盤面を描画する（これで絶対に消えません）
+  renderBoard();
+
+  // 2. その後、URLパラメータを安全にチェックしてモードを切り替える
+  const params = new URLSearchParams(window.location.search);
+  const dataParam = params.get('data');
+  if (dataParam) {
+    try {
+      bingoData = deserialize(dataParam);
+      isParticipantMode = true;
+      
+      // UI表示の切り替え（要素の存在チェック付き）
+      if (modeBadge) {
+        modeBadge.innerText = "参加者プレイモード";
+        modeBadge.style.background = "rgba(255, 183, 77, 0.2)";
+        modeBadge.style.color = "#ffb74d";
+      }
+      if (boardTitle) boardTitle.innerText = "読書ビンゴに挑戦中！";
+      
+      const btnShare = document.getElementById('btnShare');
+      if (btnShare) btnShare.classList.add('hidden');
+      
+      // データが復元されたので、もう一度再描画する
+      renderBoard();
+    } catch (e) {
+      console.error("データ復元エラー:", e);
+    }
+  }
+}
+
+// ============================================================
+// UIイベントリスナー（安全ガード付き）
+// ============================================================
 
 const sampleA = document.getElementById('sampleA');
 if (sampleA) {
@@ -306,7 +308,7 @@ if (btnModalCancel) {
   });
 }
 
-// モーダル保存処理（セキュリティ ＆ URL事前最適化）
+// モーダル保存
 const btnModalSave = document.getElementById('btnModalSave');
 if (btnModalSave) {
   btnModalSave.addEventListener('click', async () => {
@@ -314,7 +316,15 @@ if (btnModalSave) {
     const inputValue = modalImgUrl ? modalImgUrl.value.trim() : '';
     let inputUrl = modalUrl ? modalUrl.value.trim() : '';
 
-    // 🛡️ 防衛ライン③：詳細リンク先の安全性をチェック（http / https のスキームのみ許可）
-    // javascript:やdata:などを悪用したXSS（クロスサイトスクリプティング）攻撃を遮断します。
     if (inputUrl) {
       if (!inputUrl.startsWith('http://') && !inputUrl.startsWith('https://')) {
+        alert('【セキュリティ警告】詳細リンク先は http:// または https:// から始まるアドレスを入力してください。');
+        return; 
+      }
+    }
+
+    if (inputUrl && inputUrl.startsWith('http')) {
+      try {
+        const cleanUrl = new URL(inputUrl);
+        const trashParams = ['ref', 'ref_', 'qid', 'sr', 'keywords', 'utm_source', 'utm_medium', 'utm_campaign', 'igsh'];
+        trashParams.forEach(p => cleanUrl.searchParams.delete(p));
