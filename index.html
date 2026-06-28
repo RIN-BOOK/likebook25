@@ -23,16 +23,16 @@
     }
     .logo { font-size: 22px; font-weight: 800; color: #f2f2f7; }
     .badge { padding: 6px 16px; border-radius: 50px; font-size: 12px; font-weight: bold; background: rgba(0, 0, 0, 0.4); color: #e5e5ea; }
-    main { max-width: 600px; margin: 30px auto; padding: 0 15px; display: flex; flex-direction: column; align-items: center; }
+    main { max-width: 600px; margin: 30px auto; padding: 0 15px; } /* レイアウト崩れ防止のため、不要なflexを削除 */
     .info-bar { width: 100%; background: rgba(0, 0, 0, 0.5); padding: 12px; border-radius: 10px; font-size: 13px; color: #d1d1d6; text-align: center; margin-bottom: 20px; }
     .ctrl-btns { display: flex; gap: 12px; margin-bottom: 25px; justify-content: center; width: 100%; }
-    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+    .btn { padding: 12px 24px; border-radius: 10px; font-weight: bold; font-size: 14px; cursor: pointer; border: none; flex: 1; text-align: center; box-shadow: 0 4px 66px rgba(0,0,0,0.3); }
     .btn-indigo { background: #8e24aa; color: white; border-bottom: 3px solid #6a1b9a; }
     .btn-rose { background: #c62828; color: white; border-bottom: 3px solid #9e1c1c; }
     .board-container { background: rgba(20, 10, 5, 0.75); border: 2px solid #2d1500; border-radius: 20px; padding: 20px; width: 100%; box-shadow: 0 25px 30px rgba(0, 0, 0, 0.6); }
     .board-title { text-align: center; font-size: 19px; font-weight: bold; color: #d7ccc8; margin-bottom: 18px; letter-spacing: 2px; }
-    .tana { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; }
-    .bako { background: #2e1c0c; border: 1px solid #4e342e; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; }
+    .tana { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; width: 100%; min-height: 300px; } /* 高さが潰れないよう最低高さを指定 */
+    .bako { background: #2e1c0c; border: 1px solid #4e342e; border-radius: 8px; overflow: hidden; display: flex; flex-direction: column; width: 100%; }
     .bako-img-area { width: 100%; aspect-ratio: 3 / 4; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #1a0f05; position: relative; }
     .bako-img-area img { width: 100%; height: 100%; object-fit: cover; }
     .placeholder { font-size: 11px; color: #8d6e63; font-weight: bold; }
@@ -60,6 +60,44 @@
     <div class="logo">おすすめ読書ビンゴ</div>
     <div id="modeBadge" class="badge">制作者モード</div>
   </header>
+  <main>
+    <div class="info-bar">📖 マスをクリックして、表紙画像のURLと紹介リンクを設定してください。</div>
+    <div class="ctrl-btns">
+      <button id="btnShare" class="btn btn-indigo">参加用URLを発行</button>
+      <button id="btnReset" class="btn btn-rose">盤面リセット</button>
+    </div>
+    <div class="board-container">
+      <div id="boardTitle" class="board-title">MY BOOK BINGO</div>
+      <div id="gridContainer" class="tana"></div>
+    </div>
+  </main>
+  <div id="editModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-title">本の登録・編集</div>
+      <div class="form-group">
+        <label class="form-label">表紙画像のURL</label>
+        <input type="url" id="modalImgUrl" placeholder="https://..." class="form-input">
+        <div class="sample-row">
+          <button type="button" id="sampleA" class="btn-sample">📚 サンプル本A</button>
+          <button type="button" id="sampleB" class="btn-sample">📖 サンプル本B</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">詳細リンク先URL（Amazonやレビュー記事など）</label>
+        <input type="url" id="modalUrl" placeholder="https://..." class="form-input">
+      </div>
+      <div class="modal-actions">
+        <button id="btnModalCancel" class="btn btn-slate" style="padding:8px 16px; background:#475569; color:#fff;">キャンセル</button>
+        <button id="btnModalSave" class="btn btn-indigo" style="padding:8px 16px;">棚に並べる</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- URL圧縮ライブラリ（lz-string） -->
+  <script src="https://jsdelivr.net"></script>
+  <script src="app.js"></script>
+</body>
+</html>
   <main>
     <div class="info-bar">📖 マスをクリックして、表紙画像のURLと紹介リンクを設定してください。</div>
     <div class="ctrl-btns">
