@@ -1,84 +1,64 @@
-// ============================================================
-// 【完全版】画像とURLを「出力の直前」にローカルで一括超圧縮するロジック
-// ============================================================
-
-/**
- * bingoData → URL文字列（一括超圧縮）
- * 非同期（async）に変更し、シェアURLを生成する「最後の瞬間」に
- * 25マスの重いBase64画像をすべて一斉に50pxの超軽量サムネイルに変換します。
- */
-async function serialize(data) {
-  const sparse = [];
-
-  for (let idx = 0; idx < data.length; idx++) {
-    const cell = data[idx];
-    if (cell.img || cell.url) {
-      const entry = { n: idx };
-      
-      // 画像が存在する場合のローカル超圧縮処理
-      if (cell.img) {
-        if (isBase64Image(cell.img)) {
-          // マスにセットされている生画像を、ここで強制的に縦横50px・画質10%の極小WebPに変換
-          entry.i = await compressImageLocal(cell.img, 50, 50);
-        } else {
-          entry.i = cell.img;
-        }
-      }
-      
-      // 遷移先URLが存在する場合の処理
-      if (cell.url) {
-        entry.u = cell.url;
-      }
-      
-      sparse.push(entry);
-    }
-  }
-
-  // 遷移先URLの頻出ドメインを1〜2文字の記号（@0, @1...）に置換して文字数を削る
-  const compressedSparse = sparse.map(entry => {
-    const newEntry = { ...entry };
-    if (newEntry.u) {
-      for (let i = 0; i < DOMAIN_DICTIONARY.length; i++) {
-        if (newEntry.u.startsWith(DOMAIN_DICTIONARY[i])) {
-          newEntry.u = newEntry.u.replace(DOMAIN_DICTIONARY[i], `@${i}`);
-          break;
-        }
-      }
-    }
-    return newEntry;
-  });
-
-  const json = JSON.stringify(compressedSparse);
-  return LZString.compressToEncodedURIComponent(json);
-}
-
-// ----- 参加用URL発行（シェア）ボタンのイベントリスナー -----
-// ※内部で await を使うため async 関数にアップデートします
+// ----- 参加用URL発行（シェア）ボタンのイベントリスナー（短縮URL完全対応版） -----
 document.getElementById('btnShare').addEventListener('click', async () => {
   try {
-    // ユーザーに「圧縮処理中」であることを伝えるため、ボタンのテキストを変える
+    // 1. ボタンを「処理中」にして連打を防ぐ
     const originalText = document.getElementById('btnShare').innerText;
-    document.getElementById('btnShare').innerText = "URLを生成中...";
+    document.getElementById('btnShare').innerText = "短縮URLを生成中...";
     document.getElementById('btnShare').disabled = true;
 
-    // 非同期で25マスの画像とドメインを限界まで一括ローカル圧縮
+    // 2. まず、画像とドメインを詰め込んだオリジナルの長いURL（数千文字）を作る
     const serialized = await serialize(bingoData);
-    const shareUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
+    const longShareUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
     
-    // ボタンの状態を元に戻す
+    console.log("圧縮前のオリジナルURL長さ:", longShareUrl.length);
+
+    // 3. 完全無料の短縮URL API（is.gd）を使って、一瞬で20文字程度に圧縮する
+    // ※GitHub Pagesからの通信(CORS)を通すため、alloriginsプロキシを経由させています
+    const apiUrl = `https://allorigins.win{encodeURIComponent(`https://is.gd{encodeURIComponent(longShareUrl)}`)}`;
+    
+    const response = await fetch(apiUrl);
+    if (!response.ok) throw new Error('短縮APIの通信に失敗しました');
+    
+    const proxyData = await response.json();
+    const resultData = JSON.parse(proxyData.contents); // プロキシ内のJSONをパージ
+    
+    let finalUrl = longShareUrl;
+
+    if (resultData && resultData.shorturl) {
+      // 成功すれば、一瞬で「https://is.gd」のような超短いURLになります！
+      finalUrl = resultData.shorturl;
+    } else if (resultData && resultData.errormessage) {
+      console.warn("APIエラー（URLが長すぎる等）:", resultData.errormessage);
+    }
+
+    // 4. ボタンの状態を元に戻す
     document.getElementById('btnShare').innerText = originalText;
     document.getElementById('btnShare').disabled = false;
 
-    // クリップボードへのコピー処理
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      alert("【大成功】読書ビンゴのURLをコピーしました！\n\nローカル内で画像を極限まで圧縮したため、非常に短いURLになりました！");
+    // 5. クリップボードへのコピー処理
+    navigator.clipboard.writeText(finalUrl).then(() => {
+      alert(`【大成功】読書ビンゴの短縮URLをコピーしました！\n\n生成されたURL：\n${finalUrl}\n\nこのURLだけで、画像もリンクもすべて友達に共有できます！`);
     }).catch(() => {
-      prompt("URLをコピーしてください：", shareUrl);
+      prompt("URLをコピーしてください：", finalUrl);
     });
+
   } catch (e) {
-    console.error(e);
-    alert("エラーが発生しました。データ構造が崩れている可能性があります。");
-    // エラー時もボタンを戻す
+    console.error("短縮エラー:", e);
+    alert("短縮URLの生成に失敗したため、通常のURL（長い状態）でコピーを試みます。");
+    
+    // フォールバック：APIが落ちていた場合は、前回のローカル圧縮URLをそのまま渡す
+    try {
+      const serialized = await serialize(bingoData);
+      const fallbackUrl = window.location.origin + window.location.pathname + '?data=' + serialized;
+      navigator.clipboard.writeText(fallbackUrl).then(() => {
+        alert("通常のURLをコピーしました。");
+      }).catch(() => {
+        prompt("URLをコピーしてください：", fallbackUrl);
+      });
+    } catch(err) {
+      alert("エラーが発生しました。");
+    }
+
     document.getElementById('btnShare').innerText = "参加用URLを発行";
     document.getElementById('btnShare').disabled = false;
   }
